@@ -4,10 +4,8 @@
   import ChampionAutocomplete from "$lib/components/ChampionAutocomplete.svelte";
   import SkinGuessPanel from "$lib/components/panels/SkinGuessPanel.svelte";
   import SplashView from "$lib/components/SplashView.svelte";
-  import { getDiscordContext } from "$lib/services/discord";
 
   let guess = $state("");
-  const ctx = getDiscordContext();
 
   function getChampionOptions(): string[] {
     if ($game.kind !== "group") return [];
@@ -48,32 +46,30 @@
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <h2>Mode groupe</h2>
+        <h2>Mode Infini</h2>
       </div>
     </div>
 
     {#if $ddragon.status === "loading" || $game.connection === "connecting"}
-      <p class="muted">Chargement des données…</p>
+      <p class="muted">Chargement des donnees...</p>
     {/if}
 
     <SplashView
       puzzle={$game.room.puzzle}
-      alt="Splash art (groupe)"
+      alt="Splash art (infini)"
       full={$game.room.solve != null}
     />
 
     <div class="row centerRow">
-      <div class="guessRow">
-        <ChampionAutocomplete
-          bind:value={guess}
-          options={championOptions}
-          disabled={$game.room.solve != null}
-          onSubmit={(idOrInput) => {
-            actions.submitChampionGuess(idOrInput, ctx?.userName ?? "participant");
-            guess = "";
-          }}
-        />
-      </div>
+      <ChampionAutocomplete
+        bind:value={guess}
+        options={championOptions}
+        disabled={$game.room.solve != null}
+        onSubmit={(idOrInput) => {
+          actions.submitChampionGuess(idOrInput);
+          guess = "";
+        }}
+      />
     </div>
 
     {#if $game.room.guesses.length > 0}
@@ -88,7 +84,6 @@
             $ddragon.status === "ready" && $ddragon.version
               ? `https://ddragon.leagueoflegends.com/cdn/${$ddragon.version}/img/champion/${champId}.png`
               : undefined}
-          {@const player = $game.room.players[g.playerId]}
           <div
             class={`attemptCard ${solvedIndex === g.attemptIndex ? "good" : "bad"}`}
           >
@@ -101,10 +96,7 @@
             {:else}
               <div class="champIcon" aria-hidden="true"></div>
             {/if}
-            <div class="champName">
-              <div class="guessPlayer">{player?.displayName ?? g.playerId}</div>
-              <div>{champ?.name ?? champId}</div>
-            </div>
+            <div class="champName">{champ?.name ?? champId}</div>
           </div>
         {/each}
       </div>
@@ -117,22 +109,4 @@
 {/if}
 
 <style>
-  .guessRow {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .champName {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .guessPlayer {
-    font-size: 12px;
-    opacity: 0.7;
-  }
 </style>

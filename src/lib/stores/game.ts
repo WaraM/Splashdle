@@ -12,8 +12,6 @@ import type {
 	Vec2
 } from '$lib/types';
 import { ddragon, ensureDDragonLoaded, getSkinNameByNum, pickRandomFocus, pickRandomSplashRef } from '$lib/stores/ddragon';
-import { getDiscordContext } from '$lib/services/discord';
-import { buildGroupStateFromRemote, joinRoom as joinRemoteRoom, sendGuess as sendRemoteGuess, setPuzzle as setRemotePuzzle, subscribeRoom } from '$lib/services/roomsClient';
 
 export type ConnectionStatus = 'offline' | 'connecting' | 'online';
 
@@ -60,16 +58,6 @@ const ZOOM_STEP = 0.25;
 
 const makeParticipantId = (name: string) =>
 	name.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '') || 'participant';
-
-const MIN_REMOTE_CTX_ERROR = 'Cette activite doit etre lancee depuis Discord (ctx manquant).';
-
-type RemoteSession = {
-	ctx: ReturnType<typeof getDiscordContext>;
-	unsub?: () => void;
-	roomId?: string;
-};
-
-let remoteSession: RemoteSession | null = null;
 
 const makeDefaultView = (): { focus: Vec2; zoom: number } => ({
 	focus: pickRandomFocus(),
@@ -158,8 +146,6 @@ export const gamePanel = derived(game, (state): GamePanel => {
 
 export const actions = {
 	goLobby(preferredMode: GameMode = 'group') {
-		if (remoteSession?.unsub) remoteSession.unsub();
-		remoteSession = null;
 		game.set({ kind: 'lobby', connection: 'offline', preferredMode });
 	},
 
@@ -168,97 +154,57 @@ export const actions = {
 	},
 
 	async startLocalGroup(roomId = makeRoomId('local', 'voice')) {
-		const ctx = getDiscordContext();
-		if (!ctx) {
-			game.set({ kind: 'error', message: MIN_REMOTE_CTX_ERROR });
-			return;
-		}
-		if (remoteSession?.unsub) remoteSession.unsub();
 		game.set({ kind: 'group', connection: 'connecting', room: makeGroupRoom(roomId) });
 		await ensureDDragonLoaded();
-		try {
-			const puzzle = makeRandomPuzzle();
-			const remote = await joinRemoteRoom(ctx, puzzle);
-			const state = buildGroupStateFromRemote(remote);
-			remoteSession = { ctx, roomId: remote.roomId };
-			const unsub = subscribeRoom(remote.roomId, (ev) => {
-				if (ev.type === 'init' || ev.type === 'room_updated') {
-					const payload = ev.payload as any;
-					if (payload) {
-						game.set(buildGroupStateFromRemote(payload));
-					}
-				}
-				if (ev.type === 'guess') {
-					game.update((s) => {
-						if (s.kind !== 'group') return s;
-						const room = s.room;
-						const g = ev.payload as any;
-						const guess: ChampionGuess = {
-							playerId: g.playerId,
-							championKey: g.championKey,
-							attemptIndex: g.attemptIndex,
-							at: g.at
-						};
-						const guesses = [...room.guesses, guess];
-						const solved = guess.championKey === room.puzzle.splash.championKey;
-						const view = solved
-							? { ...room.puzzle.view, zoom: 1, focus: { x: 0.5, y: 0.5 } }
-							: { ...room.puzzle.view, zoom: clamp(room.puzzle.view.zoom - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM) };
-						const players = {
-							...room.players,
-							[guess.playerId]: { playerId: guess.playerId, displayName: g.displayName ?? guess.playerId }
-						};
-						return {
-							...s,
-							room: {
-								...room,
-								guesses,
-								players,
-								puzzle: { ...room.puzzle, view },
-								solve: solved ? { playerId: guess.playerId, at: guess.at, attemptIndex: guess.attemptIndex } : room.solve,
-								updatedAt: g.at ?? now()
-							}
-						};
-					});
-				}
-				if (ev.type === 'puzzle') {
-					const payload = ev.payload as any;
-					if (!payload) return;
-					game.update((s) => {
-						if (s.kind !== 'group') return s;
-						return {
-							...s,
-							room: {
-								...s.room,
-								puzzle: payload,
-								guesses: [],
-								solve: undefined,
-								skinGuess: undefined
-							}
-						};
-					});
-				}
-			});
-			remoteSession.unsub = unsub;
-			game.set(state);
-		} catch (error) {
-			game.set({ kind: 'error', message: error instanceof Error ? error.message : 'Remote join failed' });
-		}
+		game.update((s) => {
+			if (s.kind !== 'group') return s;
+			return { ...s, connection: 'offline', room: { ...s.room, puzzle: makeRandomPuzzle(), updatedAt: now() } };
+		});
 	},
 
 	async startLocalCompetitive(playerId: PlayerId = 'local-player', roomId = makeRoomId('local', 'voice')) {
-		game.set({ kind: 'error', message: 'Mode competitif indisponible pour cette version Discord.' });
+		const room = makeCompetitiveRoom(roomId);
+		room.players[playerId] = { playerId, displayName: 'You' };
+		room.progress[playerId] = {
+			playerId,
+			currentIndex: 0,
+			guesses: {},
+			solves: {}
+		};
+		game.set({ kind: 'competitive', connection: 'connecting', room, playerId });
+		await ensureDDragonLoaded();
+		game.update((s) => {
+			if (s.kind !== 'competitive') return s;
+			return {
+				...s,
+				connection: 'offline',
+				room: {
+					...s.room,
+					updatedAt: now(),
+					puzzles: [makeRandomPuzzle(), makeRandomPuzzle(), makeRandomPuzzle(), makeRandomPuzzle(), makeRandomPuzzle()],
+					winnerId: undefined
+				}
+			};
+		});
 	},
 
 	async newRound() {
 		await ensureDDragonLoaded();
-		const ctx = remoteSession?.ctx ?? getDiscordContext();
-		if (!ctx) {
-			game.set({ kind: 'error', message: MIN_REMOTE_CTX_ERROR });
-			return;
-		}
-		const puzzle = makeRandomPuzzle();
-		await setRemotePuzzle(ctx, puzzle);
+		const at = now();
+		game.update((s) => {
+			if (s.kind !== 'group') return s;
+			return {
+				...s,
+				room: {
+					...s.room,
+					updatedAt: at,
+					puzzle: makeRandomPuzzle(),
+					guesses: [],
+					solve: undefined,
+					skinGuess: undefined
+				}
+			};
+		});
 	},
 
 	async newCompetitiveSeries() {
@@ -309,14 +255,85 @@ export const actions = {
 		if (dd.status === 'ready' && !dd.championsByKey[normalizedChampionId]) {
 			return;
 		}
-		const ctx = remoteSession?.ctx ?? getDiscordContext();
-		if (ctx) {
-			sendRemoteGuess(ctx, normalizedChampionId).catch((error) => {
-				game.set({ kind: 'error', message: error instanceof Error ? error.message : 'Guess failed' });
-			});
-			return;
-		}
-		game.set({ kind: 'error', message: MIN_REMOTE_CTX_ERROR });
+		game.update((s) => {
+			if (s.kind === 'group') {
+				const displayName = participantName.trim() || 'participant';
+				const playerId = makeParticipantId(displayName);
+				const players = { ...s.room.players, [playerId]: { playerId, displayName } };
+				const attemptIndex = s.room.guesses.length;
+				const guess: ChampionGuess = {
+					playerId,
+					championKey: normalizedChampionId,
+					attemptIndex,
+					at
+				};
+				const guesses = [...s.room.guesses, guess];
+				const solved = normalizedChampionId === s.room.puzzle.splash.championKey;
+				const view = solved
+					? { ...s.room.puzzle.view, zoom: 1, focus: { x: 0.5, y: 0.5 } }
+					: { ...s.room.puzzle.view, zoom: clamp(s.room.puzzle.view.zoom - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM) };
+				return {
+					...s,
+					room: {
+						...s.room,
+						updatedAt: at,
+						players,
+						guesses,
+						puzzle: { ...s.room.puzzle, view },
+						solve: solved ? { playerId, at, attemptIndex } : s.room.solve
+					}
+				};
+			}
+
+			if (s.kind === 'competitive') {
+				const room = { ...s.room, updatedAt: at };
+				const progress = { ...room.progress };
+				const player = progress[s.playerId] ?? {
+					playerId: s.playerId,
+					currentIndex: 0,
+					guesses: {},
+					solves: {}
+				};
+
+				const index = player.currentIndex;
+				const attemptIndex = player.guesses[index]?.length ?? 0;
+				const guess: ChampionGuess = { playerId: s.playerId, championKey: normalizedChampionId, attemptIndex, at };
+
+				const guessesForPuzzle = [...(player.guesses[index] ?? []), guess];
+				const guesses = { ...player.guesses, [index]: guessesForPuzzle };
+				const correct = normalizedChampionId === room.puzzles[index]?.splash.championKey;
+				if (!correct) {
+					const puzzle = room.puzzles[index];
+					room.puzzles = room.puzzles.slice();
+					room.puzzles[index] = {
+						...puzzle,
+						view: { ...puzzle.view, zoom: clamp(puzzle.view.zoom - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM) }
+					};
+				}
+
+				const solves = { ...player.solves, [index]: correct ? { playerId: s.playerId, at, attemptIndex } : player.solves[index] };
+				const nextIndex = correct ? index + 1 : index;
+
+				const updatedPlayer = {
+					...player,
+					currentIndex: nextIndex,
+					guesses,
+					solves,
+					solvedAt: nextIndex >= room.puzzles.length ? at : player.solvedAt
+				};
+
+				progress[s.playerId] = updatedPlayer;
+				room.progress = progress;
+
+				if (updatedPlayer.solvedAt && !room.winnerId) {
+					room.winnerId = s.playerId;
+				}
+
+				return { ...s, room };
+			}
+
+			return s;
+		});
 	},
 
 	submitSkinGuess(skinName: string) {

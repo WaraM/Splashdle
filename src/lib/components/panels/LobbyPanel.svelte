@@ -1,12 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { DATA_PATCH_OVERRIDE } from "$lib/config";
-  import { getDiscordContext } from "$lib/services/discord";
   import { ddragon, ensureDDragonLoaded } from "$lib/stores/ddragon";
   import { actions } from "$lib/stores/game";
 
   let choosing = $state(false);
-  const discordCtx = getDiscordContext();
   let dataPatchLabel = $derived.by(() => {
     if (DATA_PATCH_OVERRIDE) return DATA_PATCH_OVERRIDE;
     if ($ddragon.status === "ready" && $ddragon.version)
@@ -42,18 +40,16 @@
         choosing = true;
         actions.startLocalGroup();
       }}
-      disabled={!discordCtx}
-      title={discordCtx ? "" : "Disponible uniquement en activite Discord"}
     >
-      Mode Groupe (Discord)
+      Mode Infini
     </button>
     <button
       class="ghost"
       type="button"
       disabled
-      title="Mode competitif temporairement desactive"
+      title="Mode quotidien a venir prochainement"
     >
-      Mode Competitif (indisponible)
+      Mode Quotidien (Bientot !)
     </button>
   </div>
 
