@@ -1,0 +1,23 @@
+:root {
+	--color-bg: #2f2d2e;
+	--color-bg-2: #2e4057;
+	--color-glow-1: rgba(199, 155, 59, 0.22);
+	--color-glow-2: rgba(46, 64, 87, 0.4);
+	--color-text: rgba(255, 255, 255, 0.92);
+	--color-muted: rgba(255, 255, 255, 0.72);
+	--color-surface: rgba(255, 255, 255, 0.04);
+	--color-surface-strong: rgba(255, 255, 255, 0.08);
+	--color-border: rgba(255, 255, 255, 0.08);
+	--color-border-strong: rgba(255, 255, 255, 0.14);
+	--color-accent: #c79b3b;
+	--color-accent-2: #f0d487;
+	--color-accent-soft: rgba(199, 155, 59, 0.18);
+	--color-accent-soft-2: rgba(199, 155, 59, 0.32);
+	--color-danger: #ef4444;
+	--color-success: #22c55e;
+	--color-button: rgba(255, 255, 255, 0.06);
+	--color-button-hover: rgba(255, 255, 255, 0.1);
+	--color-button-border: rgba(255, 255, 255, 0.14);
+	--color-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+	--font-stack: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
