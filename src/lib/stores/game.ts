@@ -11,7 +11,7 @@ import type {
 	SkinGuess,
 	Vec2
 } from '$lib/types';
-import { ddragon, ensureDDragonLoaded, getSkinNameByNum, pickRandomFocus, pickRandomSplashRef } from '$lib/stores/ddragon';
+import { ddragon, ensureDDragonLoaded, getSkinNameByNum, pickRandomSplashRef } from '$lib/stores/ddragon';
 
 export type ConnectionStatus = 'offline' | 'connecting' | 'online';
 
@@ -52,16 +52,16 @@ const makeRoomId = (guildId: string, channelId: string): RoomId => `${guildId}:$
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-const MAX_ZOOM = 3;
-const MIN_ZOOM = 1.6;
-const ZOOM_STEP = 0.25;
+const MAX_ZOOM = 1;
+const MIN_ZOOM = 1;
+const ZOOM_STEP = 0;
 
 const makeParticipantId = (name: string) =>
 	name.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '') || 'participant';
 
 const makeDefaultView = (): { focus: Vec2; zoom: number } => ({
-	focus: pickRandomFocus(),
-	zoom: MAX_ZOOM
+	focus: { x: 0.5, y: 0.5 },
+	zoom: 1
 });
 
 const makePuzzle = (championKey: string, skinNum = 0): Puzzle => ({

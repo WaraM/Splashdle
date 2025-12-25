@@ -15,7 +15,7 @@
     if ($ddragon.status !== "ready") return [];
     const championId = $game.room.puzzle.splash.championKey;
     const champion = $ddragon.championsByKey[championId];
-    return champion?.skins?.map((s) => s.name) ?? [];
+    return champion?.skins?.filter((s) => s.num !== 0).map((s) => s.name) ?? [];
   }
 
   function resolveSuggestion(
@@ -82,7 +82,7 @@
     champion?.skins?.find((s) => s.num === $game.room.puzzle.splash.skinNum)
       ?.name}
   {@const skinOptions = champion?.skins
-    ? champion.skins.map((s) => s.name)
+    ? champion.skins.filter((s) => s.num !== 0).map((s) => s.name)
     : []}
   {@const filteredSkinOptions = filterSkinOptions(skinName, skinOptions)}
 
