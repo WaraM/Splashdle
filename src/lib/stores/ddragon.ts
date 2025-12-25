@@ -85,10 +85,23 @@ export function pickRandomSplashRef(state: DDragonState = get(ddragon)): SplashR
 		return { championKey: 'Aatrox', skinNum: 0 };
 	}
 
-	const championKey = state.championKeys[randomInt(state.championKeys.length)]!;
-	const champion = state.championsByKey[championKey];
-	const skin = champion?.skins?.length ? champion.skins[randomInt(champion.skins.length)] : undefined;
-	return { championKey, skinNum: skin?.num ?? 0 };
+	const candidates: SplashRef[] = [];
+	for (const championKey of state.championKeys) {
+		const skins = state.championsByKey[championKey]?.skins ?? [];
+		for (const skin of skins) {
+			if (skin.num === 0) continue;
+			candidates.push({ championKey, skinNum: skin.num });
+		}
+	}
+
+	if (candidates.length === 0) {
+		const championKey = state.championKeys[randomInt(state.championKeys.length)]!;
+		const champion = state.championsByKey[championKey];
+		const skin = champion?.skins?.length ? champion.skins[randomInt(champion.skins.length)] : undefined;
+		return { championKey, skinNum: skin?.num ?? 0 };
+	}
+
+	return candidates[randomInt(candidates.length)]!;
 }
 
 export function pickRandomFocus(): Vec2 {
